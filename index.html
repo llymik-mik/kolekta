@@ -60,7 +60,7 @@ const pc=t=>t=='Collection'?'':'x';
 const head=(h,p)=>`<header><h1>${h}</h1><p>${p||''}</p></header>`;
 const nav=(a,c)=>`<nav>${a.map(([k,l])=>`<button class="${k==c?'on':''}" onclick="if(S.editing)cancelEdit();S.tab='${k}';S.sel=null;S.done=null;S.chkRes=null;R()">${l}</button>`).join('')}</nav>`;
 const er=k=>S.err[k]?`<div class="err" role="alert">${E(S.err[k])}</div>`:'';
-const shell=(a,body)=>`${body}${nav(a,S.tab)}`;
+const shell=(a,body)=>`${a===ON&&!S.sel&&!S.editing?'<button class="back" onclick="signOut()">SIGN OUT</button>':''}${body}${nav(a,S.tab)}`;
 const RN=[['home','Home'],['route','Map'],['news','News'],['report','Report'],['guide','Sort Guide']],ON=[['sched','Schedule'],['ann','Announce'],['reps','Reports']];
 const gmapPin=p=>`<div class="map" id="rmap" data-lat="${p.lat}" data-lng="${p.lng}"></div>`;
 const coords=p=>`${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)}`;
@@ -123,6 +123,7 @@ const rx=b=>b.replace(/-/g,'-?');
 const fetchGeo=b=>fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&polygon_geojson=1&q='+gq(`Barangay ${b}, Iligan City, Philippines`)).then(r=>r.json()).catch(()=>[]).then(a=>{const r=a&&a[0],g={c:r?[+r.lat,+r.lon]:null,poly:r&&r.geojson&&/Polygon/.test(r.geojson.type)?r.geojson:null};if(g.poly)return g;
 const q=`[out:json][timeout:25];area["name"~"^Iligan"]["boundary"="administrative"]->.c;rel(area.c)["boundary"="administrative"]["name"~"^(Barangay )?${rx(b)}",i];out geom;`;
 return fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)}).then(r=>r.json()).then(j=>{const els=j.elements||[],re=new RegExp('^(Barangay )?'+rx(b)+'$','i'),rel=els.find(e=>re.test((e.tags||{}).name||''))||els[0];if(!rel)return g;const ws=(rel.members||[]).filter(m=>m.type=='way'&&m.role!='inner'&&m.geometry).map(m=>m.geometry.map(p=>[p.lat,p.lon]));if(!ws.length)return g;const rg=rings(ws);return{c:g.c||rg[0][0],poly:null,rings:rg}}).catch(()=>g)}).then(g=>S.geo[b]=g);
+function signOut(){S.off=null;S.tab='home';S.sel=null;S.ed=null;S.editing=false;S.filter='All';S.err={};S.screen='welcome';R();window.scrollTo(0,0)}
 function openRep(ref){const r=S.rep.find(x=>x.ref==ref);if(!r)return;S.sel=ref;S.ed={status:r.status,action:r.action||'',reason:r.reason||''};R();window.scrollTo(0,0)}
 function afterR(){const rm=document.getElementById('rmap');if(rm&&window.L){const ll=[+rm.dataset.lat,+rm.dataset.lng],m=L.map(rm).setView(ll,18);tl().addTo(m);L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="dot"></div>',iconSize:[0,0]})}).addTo(m)}
 const el=document.getElementById('pinmap')||document.getElementById('bmap');PM=null;if(!el)return;if(!window.L){el.innerHTML='<div class="mut" style="padding:12px">The map could not load. Check your internet connection and try again.</div>';return}
