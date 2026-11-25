@@ -6,16 +6,39 @@ V.route = () => {
     day = S.mapDay,
     schedule =
       S.sched[b].find((x, i) => D[i] == day) ||
-      { type: "No collection", route: "", time: "", delay: "" },
+      { type: "No collection", zones: [], delay: "" },
     stops =
       schedule.type == "Collection"
         ? S.stops[b].filter((x) => x.day == day)
         : [],
     today = D[(new Date().getDay() + 6) % 7] || "Sunday";
+  const summaryText =
+      schedule.type == "Collection"
+        ? schedule.zones.length
+          ? schedule.zones
+              .map(
+                (zone) => {
+                  const { start, end } = zoneTimes(zone);
+                  return `${E(zone.label)}${start && end ? ` · ${timeWindow(start, end)}` : ""}`;
+                },
+              )
+              .join("<br>")
+          : "Collection zones to be confirmed"
+        : "There is no waste collection scheduled for this day.",
+    summary = `<div class="card map-summary"><div class="row"><b>${day}${day == today ? " · Today" : ""}</b><span class="pill ${schedule.type == "Collection" ? "" : "x"}">${schedule.type}</span></div><div class="mut">${summaryText}${schedule.delay ? `<br>Delay notice: ${E(schedule.delay)}` : ""}</div>${wasteTypeHtml(schedule)}</div>`,
+    stopCards =
+      schedule.type == "Collection"
+        ? stops.length
+          ? stops.map((stop, i) => stopCard(stop, i, off, S.mapEditing)).join("")
+          : '<p class="mut">No purok markers are set for this collection day.</p>'
+        : "",
+    mapControls = off
+      ? `<button class="btn ${S.mapEditing ? "alt" : ""}" onclick="toggleMapEditing()">${S.mapEditing ? "Done editing locations" : "Edit map locations"}</button>${S.mapEditing && schedule.type == "Collection" ? `<div class="card"><label for="new-stop">Add a purok / zone marker</label><input id="new-stop" placeholder="e.g. Purok 7" value="${E(S.mapAddLabel)}" oninput="S.mapAddLabel=this.value"><div class="mut">Enter the name, then click its location on the map. Drag a marker to adjust its position. Initial locations are approximate.</div></div>` : ""}${!S.mapEditing ? '<p class="mut">Residents see the collection status saved by the barangay.</p>' : ""}`
+      : "";
   return shell(
     off ? ON : RN,
     head("Collection map", `Barangay ${b}, Iligan City`) +
-      `<div class="body"><div class="map route-map" id="route-map" aria-label="Collection route map for Barangay ${E(b)} on ${day}"></div><div class="map-legend"><span><i class="scheduled"></i> Scheduled</span><span><i class="ongoing"></i> Ongoing</span><span><i class="done"></i> Done</span></div><div class="days map-days">${D.map((d, i) => `<button class="${day == d ? "on" : ""}" onclick="selectMapDay(${i})">${d.slice(0, 3)}</button>`).join("")}</div><div class="card map-summary"><div class="row"><b>${day}${day == today ? " · Today" : ""}</b><span class="pill ${schedule.type == "Collection" ? "" : "x"}">${schedule.type}</span></div><div class="mut">${schedule.type == "Collection" ? E(schedule.route || "Collection route to be confirmed") + (schedule.time ? ` · ${t12(schedule.time)}` : "") : "There is no waste collection scheduled for this day."}${b == "Tibanga" && schedule.type == "Collection" ? `<br>Waste type: ${E(schedule.wasteType || "All waste")}` : ""}${schedule.delay ? `<br>Delay notice: ${E(schedule.delay)}` : ""}</div></div>${schedule.type == "Collection" ? (stops.length ? stops.map((stop, i) => stopCard(stop, i, off, S.mapEditing)).join("") : '<p class="mut">No purok markers are set for this collection day.</p>') : ""}${off ? `<button class="btn ${S.mapEditing ? "alt" : ""}" onclick="toggleMapEditing()">${S.mapEditing ? "Done editing locations" : "Edit map locations"}</button>${S.mapEditing && schedule.type == "Collection" ? `<div class="card"><label for="new-stop">Add a purok / zone marker</label><input id="new-stop" placeholder="e.g. Purok 7" value="${E(S.mapAddLabel)}" oninput="S.mapAddLabel=this.value"><div class="mut">Enter the name, then click its location on the map. Drag a marker to adjust its position. Initial locations are approximate.</div></div>` : ""}${!S.mapEditing ? '<p class="mut">Residents see the collection status saved by the barangay.</p>' : ""}` : ""}</div>`,
+      `<div class="body"><div class="map route-map" id="route-map" aria-label="Collection route map for Barangay ${E(b)} on ${day}"></div><div class="map-legend"><span><i class="scheduled"></i> Scheduled</span><span><i class="ongoing"></i> Ongoing</span><span><i class="done"></i> Done</span></div><div class="days map-days">${D.map((d, i) => `<button class="${day == d ? "on" : ""}" onclick="selectMapDay(${i})">${d.slice(0, 3)}</button>`).join("")}</div>${summary}${stopCards}${mapControls}</div>`,
   );
 };
 function stopCard(stop, index, off, editing) {
@@ -73,8 +96,8 @@ function initRouteMap() {
   stops.forEach((stop, index) => {
     const icon = L.divIcon({
       className: "",
-      html: `<span class="route-marker route-marker--${stop.status.toLowerCase()}"><b>${index + 1}</b></span><span class="route-status-label route-status-label--${stop.status.toLowerCase()}">${E(stop.status)}</span>`,
-      iconSize: [112, 34],
+      html: `<span class="route-marker route-marker--${stop.status.toLowerCase()}"><b>${index + 1}</b></span><span class="route-status-label route-status-label--${stop.status.toLowerCase()}">${E(stop.status)}</span>${stop.start && stop.end ? `<span class="route-time-label">${timeWindow(stop.start, stop.end)}</span>` : ""}`,
+      iconSize: [150, 48],
       iconAnchor: [12, 27],
     });
     const marker = L.marker([stop.lat, stop.lng], {
@@ -82,7 +105,7 @@ function initRouteMap() {
       draggable: off && S.mapEditing,
     }).addTo(markers);
     marker.bindPopup(
-      `<b>${E(stop.label)}</b><br>${E(stop.status)}${stop.status == "Ongoing" ? " — truck collecting" : stop.status == "Done" ? " — collection completed" : ""}`,
+      `<b>${E(stop.label)}</b><br>${E(stop.status)}${stop.status == "Ongoing" ? " — truck collecting" : stop.status == "Done" ? " — collection completed" : ""}${stop.start && stop.end ? `<br>${timeWindow(stop.start, stop.end)}` : ""}`,
     );
     if (off && S.mapEditing)
       marker.on("dragend", (event) => {

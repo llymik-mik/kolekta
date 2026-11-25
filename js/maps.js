@@ -123,7 +123,6 @@ function signOut() {
   S.tab = "home";
   S.sel = null;
   S.ed = null;
-  S.editing = false;
   S.filter = "All";
   S.err = {};
   S.mapEditing = false;

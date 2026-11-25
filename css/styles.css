@@ -52,7 +52,11 @@ body {
 .body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 18px 20px;
+}
+#app.schedule-overview {
+  padding-top: 44px;
 }
 header {
   padding: 18px 18px 8px;
@@ -85,9 +89,6 @@ a {
   border-radius: 12px;
   padding: 12px 14px;
   margin-bottom: 8px;
-}
-.card.dim {
-  opacity: 0.6;
 }
 .row {
   display: flex;
@@ -178,6 +179,7 @@ textarea {
   border-radius: 10px;
   padding: 10px 12px;
   margin: 4px 0 8px;
+  font-size: 16px;
 }
 textarea {
   resize: vertical;
@@ -384,7 +386,17 @@ nav button.on {
   margin-bottom: 8px;
 }
 .map-days {
+  flex-wrap: nowrap;
+  gap: 4px;
   margin-top: 8px;
+}
+.map-days button {
+  display: grid;
+  flex: 1 1 0;
+  place-items: center;
+  min-width: 0;
+  height: 34px;
+  padding: 0 2px;
 }
 .map-summary {
   margin-bottom: 8px;
@@ -481,4 +493,281 @@ nav button.on {
 }
 .map-legend .done {
   background: #2e7d32;
+}
+.waste-type {
+  margin-top: 4px;
+  color: var(--tx);
+  font-size: 12px;
+}
+.resident-schedule-day--collection,
+.schedule-day-card:not(.schedule-day-card--none) {
+  border-color: #033500;
+  background: #033500;
+  color: #fff;
+}
+.resident-schedule-day--collection .mut,
+.resident-schedule-day--collection .waste-type,
+.resident-schedule-day--collection .waste-type strong,
+.schedule-day-card:not(.schedule-day-card--none) .schedule-day-details,
+.schedule-day-card:not(.schedule-day-card--none) .schedule-day-warning {
+  color: #fff;
+}
+.resident-schedule-day--collection .pill,
+.schedule-day-card:not(.schedule-day-card--none) .pill {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.resident-schedule-day--none {
+  background: #fff;
+}
+.schedule-day-list {
+  display: grid;
+  gap: 8px;
+}
+.schedule-day-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 72px;
+  padding: 11px 14px;
+  border: 1px solid #bcd8ad;
+  border-radius: 13px;
+  background: #fff;
+  color: var(--tx);
+  text-align: left;
+  cursor: pointer;
+}
+.schedule-day-card:focus-visible {
+  outline-offset: 2px;
+}
+.schedule-day-card--none {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--mut);
+}
+.schedule-day-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.schedule-day-content strong {
+  font-size: 13px;
+}
+.schedule-day-details {
+  color: var(--mut);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.schedule-day-warning {
+  color: var(--amb);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.schedule-day-card .pill {
+  flex: none;
+}
+.show-schedule-map {
+  margin: 12px 0 0;
+}
+.day-editor-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.day-editor-header {
+  flex: none;
+  padding: 8px 18px 6px;
+}
+.day-editor-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.day-back {
+  margin: 0 0 8px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--soft);
+  color: #1f5a22;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.day-editor-header p {
+  margin-top: 2px;
+}
+.day-editor-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 18px 12px;
+}
+.editor-section {
+  margin-bottom: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.editor-section h2 {
+  margin: 0 0 5px;
+  font-size: 14px;
+}
+.collection-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.collection-toggle .mut {
+  max-width: 230px;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 46px;
+  height: 26px;
+}
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+}
+.switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: #aab5a5;
+  cursor: pointer;
+}
+.switch span::before {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+  transition: transform 0.15s ease;
+}
+.switch input:checked + span {
+  background: var(--lime);
+}
+.switch input:checked + span::before {
+  transform: translateX(20px);
+}
+.switch input:focus-visible + span {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+.waste-segments {
+  margin: 5px 0 10px;
+}
+.zone-editor-list {
+  margin-top: 6px;
+}
+.zone-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 2px 7px;
+  margin-top: 7px;
+  padding: 8px;
+  border: 1px solid #e2ecd9;
+  border-radius: 10px;
+  background: #f9fcf7;
+}
+.zone-editor-title {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.zone-editor-row > label:first-of-type {
+  grid-column: 1;
+  grid-row: 2;
+}
+.zone-editor-row > label:nth-of-type(2) {
+  grid-column: 2;
+  grid-row: 2;
+}
+.zone-editor-row > input:first-of-type {
+  grid-column: 1;
+  grid-row: 3;
+}
+.zone-editor-row > input:nth-of-type(2) {
+  grid-column: 2;
+  grid-row: 3;
+}
+.zone-editor-row > input {
+  min-width: 0;
+  margin: 2px 0;
+  padding: 8px 5px;
+}
+.zone-editor-row > .rm {
+  grid-column: 3;
+  grid-row: 2 / 4;
+  width: 36px;
+  height: 36px;
+}
+.day-editor-footer .btn:disabled {
+  background: #d5dfd0;
+  color: #788674;
+  cursor: not-allowed;
+}
+.delay-section {
+  padding: 0;
+}
+.delay-section summary {
+  padding: 11px 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.delay-section summary .mut {
+  float: right;
+  font-weight: 400;
+}
+.delay-section > p,
+.delay-section > input {
+  margin-right: 12px;
+  margin-left: 12px;
+  width: calc(100% - 24px);
+}
+.day-editor-footer {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  padding: 8px 18px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.day-editor-footer .btn {
+  flex: 1;
+  min-height: 46px;
+  margin: 0;
+}
+.route-time-label {
+  position: absolute;
+  left: 28px;
+  top: 19px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  color: var(--tx);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
 }

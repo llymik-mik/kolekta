@@ -79,49 +79,161 @@ function sub() {
   S.d = null;
   R();
 }
-function saveS() {
+function addScheduleZone(i, label) {
+  const x = S.dayDraft;
+  if (
+    !label ||
+    !PUROK_OPTIONS[S.off].includes(label) ||
+    x.zones.some((zone) => zone.label == label)
+  )
+    return;
+  x.zones.push({ label, start: "", end: "" });
+  markDayDirty();
+  keep();
+}
+function removeScheduleZone(i, j) {
+  S.dayDraft.zones.splice(j, 1);
+  markDayDirty();
+  keep();
+}
+function openScheduleDay(i) {
+  S.editDay = i;
+  S.daySnapshot = JSON.stringify(S.sched[S.off][i]);
+  S.dayDraft = JSON.parse(S.daySnapshot);
+  S.dayDirty = false;
   S.err = {};
-  const cur = S.sched[S.off];
-  cur.forEach((x, i) => {
-    if (x.type == "No collection") return;
-    if (!x.route.trim())
-      S.err["s" + i] = "Enter the purok or zones for this route.";
-    const dv = x.drv.trim(),
-      cr = x.crew.map((n) => n.trim()).filter(Boolean);
-    if (!dv) return (S.err["a" + i] = "Enter the driver.");
-    if (!cr.length)
-      return (S.err["a" + i] = "Enter at least one crew member (up to 5).");
-    const all = [dv, ...cr];
-    if (new Set(all.map((n) => n.toLowerCase())).size < all.length)
-      return (S.err["a" + i] = "A person can only be listed once.");
-    for (const o of B) {
-      if (o == S.off) continue;
-      const y = S.sched[o][i];
-      if (y.type != "Collection" || y.time != x.time) continue;
-      const oo = [y.drv, ...y.crew].map((n) => n.trim().toLowerCase()),
-        h = all.find((n) => oo.includes(n.toLowerCase()));
-      if (h)
-        return (S.err["a" + i] =
-          `${h} is already assigned in Barangay ${o} on ${D[i]}${x.time ? " at " + t12(x.time) : ""}.`);
+  keep();
+}
+function markDayDirty() {
+  if (S.editDay == null || !S.dayDraft) return;
+  S.dayDirty = JSON.stringify(S.dayDraft) != S.daySnapshot;
+  const save = $("#save-day");
+  if (save) save.disabled = !S.dayDirty;
+}
+function setCollectionStatus(i, enabled) {
+  S.dayDraft.type = enabled ? "Collection" : "No collection";
+  S.err = {};
+  markDayDirty();
+  keep();
+}
+function setWasteType(i, value) {
+  S.dayDraft.wasteType = value;
+  markDayDirty();
+  keep();
+}
+function setZoneTime(j, field, value) {
+  S.dayDraft.zones[j][field] = value;
+  markDayDirty();
+}
+function validateScheduleDay(x, i) {
+  S.err = {};
+  if (x.type != "Collection") return;
+  if (!x.zones.length)
+    S.err["s" + i] = "Choose at least one purok or zone.";
+  else if (
+    x.zones.some((zone) => {
+      const { start, end } = zoneTimes(zone);
+      return !start || !end || timeMinutes(end) <= timeMinutes(start);
+    })
+  )
+    S.err["s" + i] =
+      "Set a valid start and end time for every selected purok or zone.";
+  if (S.err["s" + i]) return;
+  const driver = x.drv.trim(),
+    crew = x.crew.map((name) => name.trim()).filter(Boolean);
+  if (!driver) return (S.err["a" + i] = "Enter the driver.");
+  if (!crew.length)
+    return (S.err["a" + i] = "Enter at least one crew member (up to 5).");
+  const all = [driver, ...crew];
+  if (crew.length > 5)
+    return (S.err["a" + i] = "A maximum of 5 crew members can be assigned.");
+  if (new Set(all.map((name) => name.toLowerCase())).size < all.length)
+    return (S.err["a" + i] = "A person can only be listed once.");
+  for (const barangay of B) {
+    if (barangay == S.off) continue;
+    const other = S.sched[barangay][i];
+    if (other.type != "Collection") continue;
+    const assigned = [other.drv, ...other.crew].map((name) =>
+        name.trim().toLowerCase(),
+      ),
+      conflict = x.zones.find((zone) => {
+        const times = zoneTimes(zone);
+        return other.zones.some((otherZone) => {
+          const otherTimes = zoneTimes(otherZone);
+          return (
+            times.start &&
+            times.end &&
+            otherTimes.start &&
+            otherTimes.end &&
+            timeMinutes(times.start) < timeMinutes(otherTimes.end) &&
+            timeMinutes(otherTimes.start) < timeMinutes(times.end)
+          );
+        });
+      }),
+      person = all.find((name) => assigned.includes(name.toLowerCase()));
+    if (person && conflict) {
+      const times = zoneTimes(conflict);
+      return (S.err["a" + i] =
+        `${person} is already assigned in Barangay ${barangay} on ${D[i]} during ${timeWindow(times.start, times.end)}.`);
     }
-  });
+  }
+}
+function saveScheduleDay(i) {
+  if (!S.dayDirty) return;
+  const x = S.dayDraft;
+  validateScheduleDay(x, i);
   if (Object.keys(S.err).length) return R();
-  cur.forEach((x) => {
-    if (x.type == "Collection") {
-      x.drv = x.drv.trim();
-      const c = x.crew.map((n) => n.trim()).filter(Boolean);
-      x.crew = c.length ? c : [""];
-    }
-  });
+  x.drv = x.drv.trim();
+  x.wasteType = x.wasteType.trim();
+  const crew = x.crew.map((name) => name.trim()).filter(Boolean);
+  x.crew = crew.length ? crew : [""];
+  S.sched[S.off][i] = x;
   const previous = S.stops[S.off],
-    custom = previous.filter((stop) => stop.id.startsWith("custom-"));
-  S.stops[S.off] = cur.flatMap((x, i) =>
-    x.type == "Collection" && x.route.trim()
-      ? makeScheduleStops(S.off, i, x.route.trim(), previous)
-      : [],
-  ).concat(custom);
-  S.editing = false;
-  tst("Schedule saved. Residents can see it now.");
+    custom = previous.filter((stop) => stop.id.startsWith("custom-")),
+    otherDays = previous.filter(
+      (stop) => !stop.id.startsWith("custom-") && stop.day != D[i],
+    ),
+    dayStops =
+      x.type == "Collection" && x.zones.length
+        ? makeScheduleStops(
+            S.off,
+            i,
+            x.zones,
+            previous,
+          )
+        : [];
+  S.stops[S.off] = [...otherDays, ...dayStops, ...custom];
+  S.editDay = null;
+  S.daySnapshot = null;
+  S.dayDraft = null;
+  S.dayDirty = false;
+  S.err = {};
+  tst(`${D[i]} saved.`);
+}
+function leaveScheduleDay() {
+  if (S.dayDirty && !confirm("Discard your unsaved changes to this day?"))
+    return;
+  S.editDay = null;
+  S.daySnapshot = null;
+  S.dayDraft = null;
+  S.dayDirty = false;
+  S.err = {};
+  R();
+}
+function showScheduleMap(i) {
+  if (S.dayDirty && !confirm("Discard your unsaved changes to this day?"))
+    return;
+  S.editDay = null;
+  S.daySnapshot = null;
+  S.dayDraft = null;
+  S.dayDirty = false;
+  S.err = {};
+  S.mapDay = D[i];
+  S.mapAddLabel = "";
+  S.rd = null;
+  S.rs = 1;
+  S.tab = "route";
+  R();
 }
 function post() {
   const t = $("#at").value.trim(),
@@ -156,24 +268,4 @@ function saveR() {
   Object.assign(r, e, { upd: now(), ts: Date.now() });
   S.sel = null;
   tst("Status updated and posted to News.");
-}
-const schedList = (s) =>
-  s
-    .map((x, i) => {
-      const c = x.crew.map((n) => n.trim()).filter(Boolean);
-      return `<div class="card row ${x.type == "No collection" ? "dim" : ""}"><div><b>${D[i]}</b><div class="mut">${x.type == "No collection" ? "—" : E(x.route || "Route to be confirmed") + (x.time ? ", " + t12(x.time) : "")}</div>${S.off == "Tibanga" && x.type == "Collection" ? `<div class="mut">Waste type: ${E(x.wasteType || "All waste")}</div>` : ""}${x.type == "Collection" ? (x.drv.trim() ? `<div class="mut">Driver: ${E(x.drv)}<br>Crew (${c.length}): ${E(c.join(", "))}</div>` : `<div style="color:var(--amb);font-size:12px">No driver or crew assigned yet</div>`) : ""}${x.delay ? `<div style="color:var(--amb);font-size:12px">Delayed: ${E(x.delay)}</div>` : ""}</div><span class="pill ${pc(x.type)}">${x.type}</span></div>`;
-    })
-    .join("");
-let snap = null;
-function startEdit() {
-  snap = JSON.parse(JSON.stringify(S.sched[S.off]));
-  S.editing = true;
-  S.err = {};
-  R();
-}
-function cancelEdit() {
-  if (snap) S.sched[S.off] = snap;
-  S.editing = false;
-  S.err = {};
-  R();
 }

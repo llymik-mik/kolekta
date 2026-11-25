@@ -1,7 +1,144 @@
-const dayScheduleCard = (x, i, b) =>
-  i == 5 && x.type == "No collection"
-    ? ""
-    : `<div class="card row ${x.type == "No collection" ? "dim" : ""}"><div><b>${D[i]}</b><div class="mut">${x.type == "No collection" ? "—" : E(x.route || "Route to be confirmed") + (x.time ? ", " + t12(x.time) : "")}</div>${b == "Tibanga" && x.type == "Collection" ? `<div class="mut">Waste type: ${E(x.wasteType || "All waste")}</div>` : ""}${x.delay ? `<div style="color:var(--amb);font-size:12px">Delayed: ${E(x.delay)}</div>` : ""}</div><span class="pill ${pc(x.type)}">${x.type}</span></div>`;
+const wasteTypeHtml = (x) =>
+  x.type == "Collection" && x.wasteType
+    ? `<div class="waste-type"><strong>Waste type: ${E(x.wasteType)}</strong></div>`
+    : "";
+const dayReadiness = (x) => {
+  if (x.type == "No collection")
+    return { status: "Off", key: "none", gaps: [] };
+  const missingTimes = x.zones.some((zone) => {
+    const { start, end } = zoneTimes(zone);
+    return !start || !end || timeMinutes(end) <= timeMinutes(start);
+  });
+  const crew = x.crew.map((name) => name.trim()).filter(Boolean),
+    gaps = [];
+  if (!x.zones.length) gaps.push("No puroks");
+  if (!x.drv.trim()) gaps.push("No driver");
+  if (x.zones.length && missingTimes) gaps.push("Times not set");
+  if (!crew.length) gaps.push("No crew");
+  return {
+    status: gaps.length ? "Needs setup" : "Ready",
+    key: gaps.length ? "setup" : "ready",
+    gaps,
+  };
+};
+const dayZoneSummary = (zones) => {
+  if (!zones.length) return "No purok selected";
+  const first = zones[0],
+    firstMatch = first.label.match(/^(Purok|Zone)\s+(\d+)$/i),
+    lastMatch = zones[zones.length - 1].label.match(/\d+$/),
+    lastNumber = lastMatch ? Number(lastMatch[0]) : NaN,
+    firstNumber = firstMatch ? Number(firstMatch[2]) : NaN,
+    step = lastNumber >= firstNumber ? 1 : -1,
+    isRange =
+      zones.length > 1 &&
+      firstMatch &&
+      zones.every((zone, index) => {
+        const match = zone.label.match(/^(Purok|Zone)\s+(\d+)$/i);
+        return (
+          match &&
+          match[1].toLowerCase() == firstMatch[1].toLowerCase() &&
+          Number(match[2]) == firstNumber + step * index
+        );
+      });
+  return isRange
+    ? `${first.label} to ${zones[zones.length - 1].label}`
+    : zones.map((zone) => zone.label).join(", ");
+};
+const officialScheduleDayCard = (x, i) => {
+  const readiness = dayReadiness(x),
+    gaps = readiness.gaps,
+    missingStaff = [
+      gaps.includes("No driver") && "driver",
+      gaps.includes("No crew") && "crew",
+    ].filter(Boolean),
+    warnings =
+      x.type == "No collection"
+        ? ""
+        : [
+            !x.zones.length && "No puroks selected",
+            x.zones.length && gaps.includes("Times not set") && "Purok times not set",
+            missingStaff.length == 2
+              ? "No driver or crew assigned yet"
+              : missingStaff.length
+                ? `No ${missingStaff[0]} assigned yet`
+                : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+    zoneSummary =
+      x.type == "No collection" ? "—" : dayZoneSummary(x.zones),
+    wasteSummary = `Waste type: ${x.wasteType.trim() || "Not set"}`,
+    details =
+      x.type == "No collection"
+        ? "—"
+        : `${zoneSummary} · ${wasteSummary}`;
+  return `<button type="button" class="schedule-day-card ${x.type == "No collection" ? "schedule-day-card--none" : ""}" aria-label="${D[i]}: ${E(x.type == "No collection" ? "No collection" : `${details}${warnings ? `, ${warnings}` : ""}`)}. Edit schedule" onclick="openScheduleDay(${i})"><span class="schedule-day-content"><strong>${D[i]}</strong><span class="schedule-day-details">${E(zoneSummary)}</span>${x.type == "Collection" ? `<span class="schedule-day-details">${E(wasteSummary)}</span>` : ""}${warnings ? `<span class="schedule-day-warning">${E(warnings)}</span>` : ""}</span><span class="pill ${x.type == "No collection" ? "x" : ""}">${x.type}</span></button>`;
+};
+const dayScheduleCard = (x, i) =>
+  `<div class="card row resident-schedule-day ${x.type == "No collection" ? "resident-schedule-day--none" : "resident-schedule-day--collection"}"><div><b>${D[i]}</b><div class="mut">${x.type == "No collection" ? "—" : x.zones.length ? x.zones.map((zone) => { const { start, end } = zoneTimes(zone); return `${E(zone.label)}${start && end ? ` · ${timeWindow(start, end)}` : ""}`; }).join("<br>") : "No purok or zone selected"}</div>${wasteTypeHtml(x)}${x.delay ? `<div style="color:var(--amb);font-size:12px">Delayed: ${E(x.delay)}</div>` : ""}</div><span class="pill ${pc(x.type)}">${x.type}</span></div>`;
+const scheduleDayEditor = (x, i) => {
+  const customWasteType = WASTE_TYPE_PRESETS.includes(x.wasteType)
+      ? ""
+      : x.wasteType,
+    controls =
+      x.type == "Collection"
+        ? `<section class="editor-section">
+            <h2>Waste type</h2>
+            <div class="seg waste-segments">${WASTE_TYPE_PRESETS.map((type) => `<button type="button" class="${x.wasteType == type ? "on" : ""}" aria-pressed="${x.wasteType == type}" onclick="setWasteType(${i},'${type}')">${type}</button>`).join("")}</div>
+            <label for="waste-${i}">Other waste type</label>
+            <input id="waste-${i}" aria-label="Other waste type" value="${E(customWasteType)}" placeholder="Or enter your chosen waste type" oninput="S.dayDraft.wasteType=this.value;markDayDirty()">
+          </section>
+          <section class="editor-section">
+            <h2>Purok times</h2>
+            <p class="mut">Set start and end times separately for each purok.</p>
+            <label for="add-zone-${i}">Puroks to collect</label>
+            <select id="add-zone-${i}" aria-label="Add a purok or zone for ${D[i]}" onchange="addScheduleZone(${i},this.value)">
+              <option value="">Add a purok or zone</option>
+              ${PUROK_OPTIONS[S.off].map((label) => `<option value="${E(label)}" ${x.zones.some((zone) => zone.label == label) ? "disabled" : ""}>${E(label)}</option>`).join("")}
+            </select>
+            ${x.zones.length ? `<div class="zone-editor-list">${x.zones.map((zone, j) => {
+              const times = zoneTimes(zone);
+              return `<div class="zone-editor-row">
+                <div class="zone-editor-title"><b>${E(zone.label)}</b></div>
+                <label for="zone-start-${i}-${j}">Start</label>
+                <input id="zone-start-${i}-${j}" type="time" aria-label="${E(zone.label)} start time" value="${E(times.start)}" oninput="setZoneTime(${j},'start',this.value)">
+                <label for="zone-end-${i}-${j}">End</label>
+                <input id="zone-end-${i}-${j}" type="time" aria-label="${E(zone.label)} end time" value="${E(times.end)}" oninput="setZoneTime(${j},'end',this.value)">
+                <button type="button" class="rm" aria-label="Remove ${E(zone.label)}" onclick="removeScheduleZone(${i},${j})">✕</button>
+              </div>`;
+            }).join("")}</div>` : '<p class="mut">No puroks added yet.</p>'}
+            ${er("s" + i)}
+          </section>
+          ${asg(x, i)}`
+        : "";
+  return `<div class="day-editor-page">
+    <header class="day-editor-header">
+      <div class="day-editor-header-actions">
+        <button type="button" class="day-back" onclick="leaveScheduleDay()">‹ Week overview</button>
+      </div>
+      <h1>Edit ${D[i]}</h1>
+      <p>Update and save this day only.</p>
+    </header>
+    <div class="day-editor-body">
+      <section class="editor-section collection-toggle">
+        <div><b>Collection this day</b><div class="mut">Turn off to mark ${D[i]} as a no-collection day.</div></div>
+        <label class="switch"><input type="checkbox" aria-label="Collection this day" ${x.type == "Collection" ? "checked" : ""} onchange="setCollectionStatus(${i},this.checked)"><span></span></label>
+      </section>
+      ${controls}
+      ${x.type == "Collection" ? `
+        <details class="editor-section delay-section">
+          <summary>Delay notice <span class="mut">${x.delay.trim() ? "Added" : "Optional"}</span></summary>
+          <p class="mut">Let residents know if collection is delayed.</p>
+          <input aria-label="${D[i]} delay notice" value="${E(x.delay)}" placeholder="e.g. Truck delayed until 10:00 AM" oninput="S.dayDraft.delay=this.value;markDayDirty()">
+        </details>
+      ` : ""}
+    </div>
+    <footer class="day-editor-footer">
+      <button id="save-day" class="btn" onclick="saveScheduleDay(${i})" ${S.dayDirty ? "" : "disabled"}>Save ${D[i]}</button>
+      <button type="button" class="btn alt" onclick="leaveScheduleDay()">Cancel</button>
+    </footer>
+  </div>`;
+};
 const V = {
   welcome: () =>
     `<div class="hero w"><h1>Kolekta<span class="em">🗑️</span></h1><p class="mut">Garbage collection schedule, citizen reports and drainage monitoring</p><h2 style="margin-top:44px;font-size:20px">Welcome!</h2><p class="mut">Who is using the app today?</p><button class="btn" onclick="go('setup')">I am a Resident</button><button class="btn" onclick="go('login')">I am a Barangay Official</button></div>`,
@@ -23,7 +160,7 @@ const V = {
           )
           .join(
             "",
-          )}<h2>Weekly collection schedule <span class="em" style="font-size:1.6em">🗑️</span></h2>${s.every((x) => x.type == "No collection") ? '<p class="mut">No schedule is available yet.</p>' : s.map((x, i) => dayScheduleCard(x, i, S.brgy)).join("")}${a ? `<div class="banner"><b>Latest announcement</b><br>${E(a.title)}</div>` : ""}</div>`,
+          )}<h2>Weekly collection schedule <span class="em" style="font-size:1.6em">🗑️</span></h2>${s.every((x) => x.type == "No collection") ? '<p class="mut">No schedule is available yet.</p>' : s.map(dayScheduleCard).join("")}${a ? `<div class="banner"><b>Latest announcement</b><br>${E(a.title)}</div>` : ""}</div>`,
     );
   },
   news: () => {
@@ -113,19 +250,14 @@ const V = {
     `<button class="back" onclick="go('welcome')">BACK</button><div class="hero" style="padding-top:40px"><h1 style="font-size:24px">Barangay Official</h1><p class="mut">Sign in to manage Kolekta</p><div style="margin-top:30px"><label for=u>Username</label><input id=u autocomplete=username><label for=p>Password</label><input id=p type=password autocomplete=current-password>${er("login")}<button class="btn" onclick="login()">Log in</button><p class="mut" style="text-align:center;margin-top:12px">Authorized officials only</p></div></div>`,
   sched: () => {
     const s = S.sched[S.off];
-    if (!S.editing)
-      return shell(
-        ON,
-        head("Current schedule", `Barangay ${S.off}: set by the barangay`) +
-          `<div class="body">${schedList(s)}<button class="btn" onclick="startEdit()">Edit schedule</button><button class="btn alt" onclick="S.rd=null;S.rs=1;S.mapDay='${D[(new Date().getDay() + 6) % 7] || "Sunday"}';S.tab='route';R()">Show Map</button></div>`,
-      );
+    if (S.editDay != null)
+      return scheduleDayEditor(S.dayDraft, S.editDay);
+    const today = (new Date().getDay() + 6) % 7;
     return shell(
       ON,
-      head(
-        "Set collection",
-        `Barangay ${S.off}: weekly schedule, route and crew`,
-      ) +
-        `<div class="body">${s.map((x, i) => `<div class="card"><b>${D[i]}</b><select aria-label="${D[i]} collection schedule" onchange="S.sched[S.off][${i}].type=this.value;keep()">${T.map((t) => `<option ${t == x.type ? "selected" : ""}>${t}</option>`).join("")}</select><div class="row"><div style="flex:1"><label>Time (optional)</label><input type=time value="${x.time}" oninput="S.sched[S.off][${i}].time=this.value"></div><div style="flex:2"><label>Purok / zones</label><input value="${E(x.route)}" placeholder="In route order, e.g. Purok 1–3" oninput="S.sched[S.off][${i}].route=this.value"></div></div>${er("s" + i)}${S.off == "Tibanga" && x.type == "Collection" ? `<label for="waste-${i}">Waste type</label><select id="waste-${i}" onchange="S.sched[S.off][${i}].wasteType=this.value">${WASTE_TYPES.map((w) => `<option ${w == (x.wasteType || "All waste") ? "selected" : ""}>${w}</option>`).join("")}</select>` : ""}${x.type == "Collection" ? asg(x, i) : ""}<label>Delay notice <span class=mut>(optional)</span></label><input value="${E(x.delay)}" placeholder="e.g. Truck delayed until 10:00 AM" oninput="S.sched[S.off][${i}].delay=this.value"></div>`).join("")}<button class="btn" onclick="saveS()">Save schedule</button><button class="btn alt" onclick="cancelEdit()">Cancel</button></div>`,
+      `<button class="back" onclick="signOut()">SIGN OUT</button>` +
+        head("Current schedule", `Barangay ${S.off}: set by the barangay`) +
+        `<div class="body schedule-overview-body"><div class="schedule-day-list">${s.map(officialScheduleDayCard).join("")}</div><button type="button" class="btn show-schedule-map" onclick="showScheduleMap(${today})">Show Map</button></div>`,
     );
   },
   ann: () =>

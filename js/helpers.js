@@ -1,8 +1,13 @@
 const $ = (s) => document.querySelector(s),
   R = () => {
-    $("#app").innerHTML =
+    const app = $("#app");
+    app.innerHTML =
       V[S.screen]() +
       (S.toast ? `<div class="toast" role="status">${E(S.toast)}</div>` : "");
+    app.classList.toggle(
+      "schedule-overview",
+      S.screen == "off_" && S.tab == "sched" && S.editDay == null,
+    );
     afterR();
   },
   go = (s) => {
@@ -21,11 +26,11 @@ const tst = (m) => {
 const pc = (t) => (t == "Collection" ? "" : "x");
 const head = (h, p) => `<header><h1>${h}</h1><p>${p || ""}</p></header>`;
 const nav = (a, c) =>
-  `<nav>${a.map(([k, l]) => `<button class="${k == c ? "on" : ""}" onclick="if(S.editing)cancelEdit();S.tab='${k}';S.sel=null;S.done=null;S.chkRes=null;R()">${l}</button>`).join("")}</nav>`;
+  `<nav>${a.map(([k, l]) => `<button class="${k == c ? "on" : ""}" onclick="S.tab='${k}';S.sel=null;S.done=null;S.chkRes=null;R()">${l}</button>`).join("")}</nav>`;
 const er = (k) =>
   S.err[k] ? `<div class="err" role="alert">${E(S.err[k])}</div>` : "";
 const shell = (a, body) =>
-  `${a === ON && !S.sel && !S.editing ? '<button class="back" onclick="signOut()">SIGN OUT</button>' : ""}${body}${nav(a, S.tab)}`;
+  `${a === ON && !S.sel && S.tab != "sched" ? '<button class="back" onclick="signOut()">SIGN OUT</button>' : ""}${body}${nav(a, S.tab)}`;
 const RN = [
     ["home", "Home"],
     ["route", "Map"],

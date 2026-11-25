@@ -3,11 +3,32 @@ const fit = () => {
     k = Math.min(1, (innerWidth - 24) / 360, (innerHeight - 24) / 800);
   a.style.transform = "translate(-50%,-50%) scale(" + k + ")";
 };
-addEventListener("resize", fit);
 const B = ["Tibanga", "Poblacion", "Pala-o", "Hinaplanon", "Saray"],
-  D = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-  T = ["Collection", "No collection"],
-  WASTE_TYPES = ["All waste", "Non-bio", "Diapers only"],
+  D = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ],
+  WASTE_TYPE_PRESETS = ["Bio", "Non-bio", "Recyclable"],
+  PUROK_OPTIONS = {
+    Tibanga: Array.from({ length: 21 }, (_, i) => `Purok ${i + 1}`),
+    Poblacion: Array.from({ length: 10 }, (_, i) => `Zone ${i + 1}`),
+    "Pala-o": [
+      ...Array.from({ length: 19 }, (_, i) => `Purok ${i + 1}`),
+      "Purok 13a",
+      "Purok 14a",
+    ],
+    Hinaplanon: Array.from({ length: 15 }, (_, i) => `Purok ${i + 1}`),
+    Saray: [
+      ...Array.from({ length: 10 }, (_, i) => `Purok ${i + 1}`),
+      "Purok 3a",
+      "Purok 10a",
+    ],
+  },
   ST = ["Submitted", "In Progress", "Resolved", "Rejected"];
 const acc = (b) => b.toLowerCase().replace("-", "");
 const now = () =>
@@ -28,6 +49,18 @@ const t12 = (t) => {
   h = +h;
   return `${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}`;
 };
+const timeMinutes = (t) => {
+  const [hour, minute] = t.split(":").map(Number);
+  return hour * 60 + minute;
+};
+const timeWindow = (start, end) => {
+  if (!start || !end) return "";
+  return `${t12(start)}–${t12(end)}`;
+};
+const zoneTimes = (zone) => ({
+  start: zone.start || "",
+  end: zone.end || "",
+});
 const S = {
   screen: "welcome",
   tab: "home",
@@ -50,6 +83,9 @@ const S = {
   ed: null,
   ak: "Urgent",
   sched: {},
+  editDay: null,
+  daySnapshot: null,
+  dayDirty: false,
   geo: {},
   gl: {},
   rd: null,
@@ -110,9 +146,8 @@ const parseRouteStops = (route) => {
     });
   return stops;
 };
-const makeScheduleStops = (b, dayIndex, route, previous = []) => {
-  const labels = parseRouteStops(route);
-  return labels.map((label, stopIndex) => {
+const makeScheduleStops = (b, dayIndex, zones, previous = []) =>
+  zones.map(({ label, start, end }, stopIndex) => {
     const old = previous.find(
         (stop) =>
           stop.day == D[dayIndex] &&
@@ -121,7 +156,7 @@ const makeScheduleStops = (b, dayIndex, route, previous = []) => {
       rowOffset =
         ((dayIndex % 3) - 1) * 0.0008 +
         Math.sin(stopIndex * (Math.PI / 2)) * 0.00045,
-      colOffset = (stopIndex - (labels.length - 1) / 2) * 0.0007;
+      colOffset = (stopIndex - (zones.length - 1) / 2) * 0.0007;
     return {
       id: `schedule-${dayIndex}-${stopIndex}`,
       day: D[dayIndex],
@@ -129,9 +164,10 @@ const makeScheduleStops = (b, dayIndex, route, previous = []) => {
       lat: old ? old.lat : MAP_CENTER[b][0] + rowOffset,
       lng: old ? old.lng : MAP_CENTER[b][1] + colOffset,
       status: old ? old.status : "Scheduled",
+      start,
+      end,
     };
   });
-};
 const SD = {
   Tibanga: [
     "",
@@ -171,21 +207,26 @@ B.forEach((b) => {
   S.sched[b] = D.map((_, i) => ({
     type:
       SD[b][i] || (b == "Tibanga" && i == 3) ? "Collection" : "No collection",
-    time: "",
-    route: SD[b][i],
+    zones: parseRouteStops(SD[b][i] || "").map((label) => ({
+      label,
+      start: "",
+      end: "",
+    })),
     wasteType:
       b == "Tibanga" && i == 1
         ? "Non-bio"
         : b == "Tibanga" && i == 3
           ? "Diapers only"
-          : "All waste",
+          : b == "Tibanga" && i < 6
+            ? "All waste"
+            : "",
     delay: "",
     drv: "",
     crew: [""],
   }));
   S.stops[b] = S.sched[b].flatMap((x, i) =>
-      x.type == "Collection" && x.route
-        ? makeScheduleStops(b, i, x.route)
+      x.type == "Collection" && x.zones.length
+        ? makeScheduleStops(b, i, x.zones)
         : [],
     );
   S.ann.push(
