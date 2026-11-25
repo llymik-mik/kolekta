@@ -29,11 +29,11 @@ V.route = () => {
     stopCards =
       schedule.type == "Collection"
         ? stops.length
-          ? stops.map((stop, i) => stopCard(stop, i, off, S.mapEditing)).join("")
+          ? stops.map((stop, i) => stopCard(stop, i, off, false)).join("")
           : '<p class="mut">No purok markers are set for this collection day.</p>'
         : "",
     mapControls = off
-      ? `<button class="btn ${S.mapEditing ? "alt" : ""}" onclick="toggleMapEditing()">${S.mapEditing ? "Done editing locations" : "Edit map locations"}</button>${S.mapEditing && schedule.type == "Collection" ? `<div class="card"><label for="new-stop">Add a purok / zone marker</label><input id="new-stop" placeholder="e.g. Purok 7" value="${E(S.mapAddLabel)}" oninput="S.mapAddLabel=this.value"><div class="mut">Enter the name, then click its location on the map. Drag a marker to adjust its position. Initial locations are approximate.</div></div>` : ""}${!S.mapEditing ? '<p class="mut">Residents see the collection status saved by the barangay.</p>' : ""}`
+      ? '<p class="mut">Residents see the collection status saved by the barangay. Purok markers come from the saved schedule; to add or remove a purok, edit that day on the Schedule tab.</p>'
       : "";
   return shell(
     off ? ON : RN,
@@ -44,15 +44,10 @@ V.route = () => {
 function stopCard(stop, index, off, editing) {
   const statusClass =
     stop.status == "Ongoing" ? "n" : stop.status == "Done" ? "" : "x";
-  return `<div class="card stop-card"><div class="row"><div><span class="stop-order">${index + 1}</span><b>${E(stop.label)}</b></div><span class="pill ${statusClass}">${stop.status}</span></div>${off ? `<label for="stop-status-${E(stop.id)}">Collection status</label><select id="stop-status-${E(stop.id)}" aria-label="Status for ${E(stop.label)}" onchange="setStopStatus('${E(stop.id)}',this.value)"><option ${stop.status == "Scheduled" ? "selected" : ""}>Scheduled</option><option ${stop.status == "Ongoing" ? "selected" : ""}>Ongoing</option><option ${stop.status == "Done" ? "selected" : ""}>Done</option></select>${editing ? `<div class="mut">Position: ${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}</div>` : ""}` : `<div class="mut">${stop.status == "Done" ? "Collection completed" : stop.status == "Ongoing" ? "Truck is collecting here now" : "Collection is scheduled"}</div>`}</div>`;
+  return `<div class="card stop-card"><div class="row"><div><span class="stop-order">${index + 1}</span><b>${E(stop.label)}</b></div><span class="pill ${statusClass}">${stop.status}</span></div>${off ? `<label for="stop-status-${E(stop.id)}">Collection status</label><select id="stop-status-${E(stop.id)}" aria-label="Status for ${E(stop.label)}" onchange="setStopStatus('${E(stop.id)}',this.value)"><option ${stop.status == "Scheduled" ? "selected" : ""}>Scheduled</option><option ${stop.status == "Ongoing" ? "selected" : ""}>Ongoing</option><option ${stop.status == "Done" ? "selected" : ""}>Done</option></select>` : `<div class="mut">${stop.status == "Done" ? "Collection completed" : stop.status == "Ongoing" ? "Truck is collecting here now" : "Collection is scheduled"}</div>`}</div>`;
 }
 function selectMapDay(i) {
   S.mapDay = D[i];
-  S.mapAddLabel = "";
-  R();
-}
-function toggleMapEditing() {
-  S.mapEditing = !S.mapEditing;
   S.mapAddLabel = "";
   R();
 }
@@ -102,43 +97,12 @@ function initRouteMap() {
     });
     const marker = L.marker([stop.lat, stop.lng], {
       icon,
-      draggable: off && S.mapEditing,
+      draggable: false,
     }).addTo(markers);
     marker.bindPopup(
       `<b>${E(stop.label)}</b><br>${E(stop.status)}${stop.status == "Ongoing" ? " — truck collecting" : stop.status == "Done" ? " — collection completed" : ""}${stop.start && stop.end ? `<br>${timeWindow(stop.start, stop.end)}` : ""}`,
     );
-    if (off && S.mapEditing)
-      marker.on("dragend", (event) => {
-        const point = event.target.getLatLng();
-        stop.lat = +point.lat.toFixed(6);
-        stop.lng = +point.lng.toFixed(6);
-        if (routeLine)
-          routeLine.setLatLngs(stops.map((item) => [item.lat, item.lng]));
-        const status = document.getElementById(`stop-status-${stop.id}`);
-        if (status && status.parentElement)
-          status.parentElement.querySelector(".mut").textContent =
-            `Position: ${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`;
-      });
   });
   markers.addTo(map);
   if (stops.length > 1) map.fitBounds(markers.getBounds().pad(0.2));
-  if (off && S.mapEditing && schedule.type == "Collection")
-    map.on("click", (event) => {
-      const label = S.mapAddLabel.trim();
-      if (!label) {
-        const input = document.getElementById("new-stop");
-        if (input) input.focus();
-        return;
-      }
-      S.stops[b].push({
-        id: `custom-${++S.stopSeq}`,
-        day: S.mapDay,
-        label,
-        lat: +event.latlng.lat.toFixed(6),
-        lng: +event.latlng.lng.toFixed(6),
-        status: "Scheduled",
-      });
-      S.mapAddLabel = "";
-      R();
-    });
 }
