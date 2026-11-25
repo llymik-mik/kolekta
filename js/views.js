@@ -258,7 +258,7 @@ const V = {
       ON,
       head(
         "Post announcement",
-        "Residents of your barangay are notified instantly",
+        "Posted announcements appear in the News tab of your barangay residents",
       ) +
         `<div class="body"><div class="seg">${["Urgent", "Notice", "Reminder"].map((k) => `<button class="${S.ak == k ? "on" : ""}" onclick="S.ak='${k}';R()">${k}</button>`).join("")}</div><label for=at>Title</label><input id=at placeholder="e.g. No collection today">${er("t")}<label for=am>Message</label><textarea id=am placeholder="e.g. Garbage truck broke down. Collection resumes tomorrow."></textarea>${er("m")}<button class="btn" onclick="post()">Post announcement</button><h2>Recent posts</h2>${S.ann
           .filter((x) => x.b == S.off)
