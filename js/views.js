@@ -125,13 +125,6 @@ const scheduleDayEditor = (x, i) => {
         <label class="switch"><input type="checkbox" aria-label="Collection this day" ${x.type == "Collection" ? "checked" : ""} onchange="setCollectionStatus(${i},this.checked)"><span></span></label>
       </section>
       ${controls}
-      ${x.type == "Collection" ? `
-        <details class="editor-section delay-section">
-          <summary>Delay notice <span class="mut">${x.delay.trim() ? "Added" : "Optional"}</span></summary>
-          <p class="mut">Let residents know if collection is delayed.</p>
-          <input aria-label="${D[i]} delay notice" value="${E(x.delay)}" placeholder="e.g. Truck delayed until 10:00 AM" oninput="S.dayDraft.delay=this.value;markDayDirty()">
-        </details>
-      ` : ""}
     </div>
     <footer class="day-editor-footer">
       <button id="save-day" class="btn" onclick="saveScheduleDay(${i})" ${S.dayDirty ? "" : "disabled"}>Save ${D[i]}</button>
@@ -141,7 +134,7 @@ const scheduleDayEditor = (x, i) => {
 };
 const V = {
   welcome: () =>
-    `<div class="hero w"><h1>Kolekta<span class="em">🗑️</span></h1><p class="mut">Garbage collection schedule, citizen reports and drainage monitoring</p><h2 style="margin-top:44px;font-size:20px">Welcome!</h2><p class="mut">Who is using the app today?</p><button class="btn" onclick="go('setup')">I am a Resident</button><button class="btn" onclick="go('login')">I am a Barangay Official</button></div>`,
+    `<div class="hero w"><h1>Kolekta<span class="em">🗑️</span></h1><p class="mut">Garbage collection schedule, citizen reports and drainage monitoring</p><h2>Welcome!</h2><p class="mut">Who is using the app today?</p><button class="btn" onclick="go('setup')">I am a Resident</button><button class="btn" onclick="go('login')">I am a Barangay Official</button></div>`,
   setup: () =>
     `<button class="back" onclick="go('welcome')">BACK</button>${head("Let’s get you set up", "Tell us who you are")}<div class="body"><label for=n>Your name</label><input id=n placeholder="Enter your name" value="${E(S.name)}" oninput="S.name=this.value">${er("name")}<label for=b>Your barangay</label><select id=b onchange="S.brgy=this.value"><option value="">Select barangay</option>${B.map((b) => `<option ${b == S.brgy ? "selected" : ""} value="${b}">Barangay ${b}</option>`).join("")}</select>${er("brgy")}<button class="btn" onclick="cont()">Continue</button></div>`,
   home: () => {
@@ -247,7 +240,7 @@ const V = {
           )}<div class="card"><b>Quick tips</b><div class="mut">1. Keep separate bags.<br>2. Rinse containers before disposal.<br>3. Tie bags and set them out on your collection day.</div></div></div>`,
     ),
   login: () =>
-    `<button class="back" onclick="go('welcome')">BACK</button><div class="hero" style="padding-top:40px"><h1 style="font-size:24px">Barangay Official</h1><p class="mut">Sign in to manage Kolekta</p><div style="margin-top:30px"><label for=u>Username</label><input id=u autocomplete=username><label for=p>Password</label><input id=p type=password autocomplete=current-password>${er("login")}<button class="btn" onclick="login()">Log in</button><p class="mut" style="text-align:center;margin-top:12px">Authorized officials only</p></div></div>`,
+    `<button class="back" onclick="go('welcome')">BACK</button><div class="hero" style="padding-top:40px"><h1 style="font-size:24px">Barangay Official</h1><div style="margin-top:30px"><label for=u>Username</label><input id=u autocomplete=username><label for=p>Password</label><input id=p type=password autocomplete=current-password>${er("login")}<button class="btn" onclick="login()">Log in</button><p class="mut" style="text-align:center;margin-top:12px">Authorized officials only</p></div></div>`,
   sched: () => {
     const s = S.sched[S.off];
     if (S.editDay != null)
@@ -256,7 +249,7 @@ const V = {
     return shell(
       ON,
       `<button class="back" onclick="signOut()">SIGN OUT</button>` +
-        head("Current schedule", `Barangay ${S.off}: set by the barangay`) +
+        head("Current schedule", "Edit the Collection schedule of your Barangay!") +
         `<div class="body schedule-overview-body"><div class="schedule-day-list">${s.map(officialScheduleDayCard).join("")}</div><button type="button" class="btn show-schedule-map" onclick="showScheduleMap(${today})">Show Map</button></div>`,
     );
   },
